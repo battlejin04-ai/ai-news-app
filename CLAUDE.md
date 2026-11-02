@@ -1,38 +1,38 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+이 파일은 Claude Code(claude.ai/code)가 이 저장소에서 작업할 때 참고할 가이드를 제공합니다.
 
-## Status
+## 현재 상태
 
-Only the create-next-app scaffold exists so far (`src/app/` template files). The app is specified in `PRD.md` (Korean) and is to be built in the order given in its §10. Read `PRD.md` before implementing anything; it defines the data model, API routes, and verification criteria.
+현재는 create-next-app 스캐폴드(`src/app/` 템플릿 파일)만 존재합니다. 앱의 명세는 `PRD.md`(한글)에 있으며, §10에 명시된 순서대로 구현합니다. 무엇이든 구현하기 전에 `PRD.md`를 먼저 읽으세요. 데이터 모델, API 라우트, 검증 기준이 정의되어 있습니다.
 
-## Commands
+## 명령어
 
-- `npm run dev` — dev server (local only; this is a personal, single-user app)
-- `npm run build` / `npm start` — production build / serve
+- `npm run dev` — 개발 서버 (로컬 전용, 개인 단일 사용자 앱)
+- `npm run build` / `npm start` — 프로덕션 빌드 / 실행
 - `npm run lint` — ESLint (flat config, `eslint.config.mjs`)
-- No test runner is configured.
-- `drizzle-kit` is installed (dev dep) but no `drizzle.config.ts` exists yet.
+- 테스트 러너는 설정되어 있지 않습니다.
+- `drizzle-kit`은 설치되어 있으나(dev 의존성) `drizzle.config.ts`는 아직 없습니다.
 
-## Next.js version warning
+## Next.js 버전 경고
 
-`AGENTS.md` states this Next.js (16.x) has breaking changes versus common training data. Before writing Next.js code, read the relevant guide under `node_modules/next/dist/docs/`. Same caution applies to `@clerk/nextjs` (v7) and `@anthropic-ai/sdk` (v1): check the installed package docs/types rather than relying on memory.
+`AGENTS.md`에 따르면 이 Next.js(16.x)는 일반적인 학습 데이터와 비교해 호환되지 않는 변경 사항이 있습니다. Next.js 코드를 작성하기 전에 `node_modules/next/dist/docs/` 아래의 관련 가이드를 읽으세요. `@clerk/nextjs`(v7)와 `@anthropic-ai/sdk`(v1)도 마찬가지입니다. 기억에 의존하지 말고 설치된 패키지의 문서/타입을 확인하세요.
 
-## Architecture (planned, per PRD)
+## 아키텍처 (PRD 기준 계획)
 
-- **Stack**: Next.js App Router, Clerk auth, Neon Postgres via Drizzle ORM (`@neondatabase/serverless`), Claude API for translate/summarize/classify, `rss-parser` for feeds, Notion via the official `@notionhq/notion-mcp-server` run as a **child process** driven by `@modelcontextprotocol/sdk` (not the Notion REST SDK).
-- **Auth**: every page and API route must be protected by Clerk (middleware), including `/api/*`.
-- **Fetch pipeline** (`POST /api/news/fetch`): fetch both RSS feeds in parallel (10 latest each, max 20) → drop articles whose `url` already exists (no Claude call for them) → send only new ones to Claude in one batch, requesting JSON structured output (Korean title, 3–4 sentence Korean summary, exactly one category) → insert. Validate Claude output with `zod`.
-- **Categories**: name + description are injected into the classification prompt, so edits affect future classification immediately. One category per article. Deleting a category sets its articles' `categoryId` to null ("미분류"). Editing a category does NOT reclassify existing articles; only `POST /api/news/reclassify` does (cost control).
-- **Notion save** (`POST /api/news/[id]/notion`): creates a row in `NOTION_DATABASE_ID` (properties: title, category, URL, date; body: summary), then stores `notionPageId`; a non-null `notionPageId` must block duplicate saves.
-- **Data model**: `categories` and `articles` (`url` unique, `categoryId` nullable, `notionPageId` nullable) — see PRD §7.
-- Collection is button-triggered only; no cron/background fetching.
+- **스택**: Next.js App Router, Clerk 인증, Drizzle ORM을 통한 Neon Postgres(`@neondatabase/serverless`), 번역/요약/분류용 Claude API, 피드용 `rss-parser`, Notion은 공식 `@notionhq/notion-mcp-server`를 **자식 프로세스**로 실행하고 `@modelcontextprotocol/sdk`로 제어 (Notion REST SDK 사용 안 함).
+- **인증**: 모든 페이지와 API 라우트는 `/api/*`를 포함해 Clerk(미들웨어)로 보호해야 합니다.
+- **수집 파이프라인** (`POST /api/news/fetch`): 두 RSS 피드를 병렬로 가져옴(각 최신 10개, 최대 20개) → `url`이 이미 존재하는 기사는 제외(해당 기사는 Claude 호출 안 함) → 새 기사만 한 번의 배치로 Claude에 전달하여 JSON 구조화 출력 요청(한글 제목, 3~4문장 한글 요약, 카테고리 정확히 하나) → 저장. Claude 출력은 `zod`로 검증합니다.
+- **카테고리**: 이름과 설명이 분류 프롬프트에 주입되므로, 수정하면 이후 분류에 즉시 반영됩니다. 기사당 카테고리는 하나입니다. 카테고리를 삭제하면 해당 기사의 `categoryId`가 null("미분류")이 됩니다. 카테고리를 수정해도 기존 기사는 재분류되지 않으며, 오직 `POST /api/news/reclassify`만 재분류합니다(비용 통제).
+- **Notion 저장** (`POST /api/news/[id]/notion`): `NOTION_DATABASE_ID`에 행을 생성하고(속성: 제목, 카테고리, URL, 날짜 / 본문: 요약), `notionPageId`를 저장합니다. `notionPageId`가 null이 아니면 중복 저장을 막아야 합니다.
+- **데이터 모델**: `categories`, `articles`(`url` 고유, `categoryId` nullable, `notionPageId` nullable) — PRD §7 참조.
+- 수집은 버튼 클릭으로만 실행되며, cron/백그라운드 수집은 없습니다.
 
-## Environment variables
+## 환경 변수
 
-`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`, `ANTHROPIC_API_KEY`, `NOTION_TOKEN`, `NOTION_DATABASE_ID` (in `.env.local`).
+`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`, `ANTHROPIC_API_KEY`, `NOTION_TOKEN`, `NOTION_DATABASE_ID` (`.env.local`에 설정).
 
-## Environment notes
+## 환경 참고 사항
 
-- Windows; the directory name has uppercase letters, so `create-next-app` can't run in place — the `package.json` name is `ai-news-collector`.
-- `package.json` contains `@tailwindcss/turbopack` from the template; unverified whether it's needed.
+- Windows 환경입니다. 디렉터리 이름에 대문자가 있어 `create-next-app`을 해당 위치에서 실행할 수 없었기 때문에 `package.json`의 name은 `ai-news-collector`입니다.
+- `package.json`에 템플릿에서 포함된 `@tailwindcss/turbopack`이 있으나, 실제로 필요한지는 확인되지 않았습니다.
