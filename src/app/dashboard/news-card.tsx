@@ -2,8 +2,10 @@ export type NewsCardItem = {
   id: number;
   url: string;
   source: string;
-  titleKo: string;
-  summaryKo: string;
+  originalTitle: string;
+  contentSnippet: string | null;
+  titleKo: string | null;
+  summaryKo: string | null;
   publishedAt: Date | null;
   createdAt: Date;
   notionPageId: string | null;
@@ -29,25 +31,23 @@ export function NewsCard({ item }: { item: NewsCardItem }) {
   return (
     <article className="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
       <div className="flex items-center justify-between gap-2">
-        <span
-          className={
-            item.categoryName
-              ? "rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700"
-              : "rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600"
-          }
-        >
-          {item.categoryName ?? "미분류"}
-        </span>
+        {item.categoryName ? (
+          <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
+            {item.categoryName}
+          </span>
+        ) : (
+          <span />
+        )}
         <time dateTime={date.toISOString()} className="text-xs text-slate-500">
           {formatDate(date)}
         </time>
       </div>
 
       <h2 className="mt-3 line-clamp-2 text-base font-semibold leading-snug text-slate-900">
-        {item.titleKo}
+        {item.titleKo ?? item.originalTitle}
       </h2>
       <p className="mt-2 line-clamp-4 text-sm leading-relaxed text-slate-600">
-        {item.summaryKo}
+        {item.summaryKo ?? item.contentSnippet}
       </p>
 
       <div className="mt-auto flex items-center justify-between gap-2 pt-4">

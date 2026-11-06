@@ -8,8 +8,11 @@ import { articles, categories } from "@/db/schema";
 import { CategoryBar } from "./category-bar";
 import { FetchNewsButton } from "./fetch-news-button";
 import { NewsCard } from "./news-card";
+import { Pagination } from "./pagination";
 
 export const metadata = { title: "대시보드 · AI 뉴스 수집기" };
+
+const PAGE_SIZE = 9;
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -58,7 +61,13 @@ async function DashboardContent({
     selected && /^\d+$/.test(selected) ? Number(selected) : null;
   const onlyUncategorized = selected === "uncategorized";
 
-  const [categoryRows, countRows, items] = await Promise.all([
+  const rawPage = (await searchParams).page;
+  const pageParam = Array.isArray(rawPage) ? rawPage[0] : rawPage;
+  const requestedPage =
+    pageParam && /^\d+$/.test(pageParam) ? Math.max(1, Number(pageParam)) : 1;
+
+  // 카운트는 카테고리 필터와 무관하게 전체 기준으로 먼저 계산해 페이지 수를 구한다.
+  const [categoryRows, countRows] = await Promise.all([
     db.select().from(categories).orderBy(categories.id),
     db
       .select({
@@ -67,36 +76,49 @@ async function DashboardContent({
       })
       .from(articles)
       .groupBy(articles.categoryId),
-    db
-      .select({
-        id: articles.id,
-        url: articles.url,
-        source: articles.source,
-        titleKo: articles.titleKo,
-        summaryKo: articles.summaryKo,
-        publishedAt: articles.publishedAt,
-        createdAt: articles.createdAt,
-        notionPageId: articles.notionPageId,
-        categoryName: categories.name,
-      })
-      .from(articles)
-      .leftJoin(categories, eq(articles.categoryId, categories.id))
-      .where(
-        onlyUncategorized
-          ? isNull(articles.categoryId)
-          : selectedId !== null
-            ? eq(articles.categoryId, selectedId)
-            : undefined,
-      )
-      // 발행일이 없으면 수집 시각을 기준으로 최신순 정렬
-      .orderBy(
-        desc(sql`coalesce(${articles.publishedAt}, ${articles.createdAt})`),
-        desc(articles.id),
-      ),
   ]);
 
   const counts = new Map(countRows.map((r) => [r.categoryId, r.count]));
   const total = countRows.reduce((sum, r) => sum + r.count, 0);
+
+  const filteredTotal = onlyUncategorized
+    ? (counts.get(null) ?? 0)
+    : selectedId !== null
+      ? (counts.get(selectedId) ?? 0)
+      : total;
+  const totalPages = Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
+
+  const items = await db
+    .select({
+      id: articles.id,
+      url: articles.url,
+      source: articles.source,
+      originalTitle: articles.originalTitle,
+      contentSnippet: articles.contentSnippet,
+      titleKo: articles.titleKo,
+      summaryKo: articles.summaryKo,
+      publishedAt: articles.publishedAt,
+      createdAt: articles.createdAt,
+      notionPageId: articles.notionPageId,
+      categoryName: categories.name,
+    })
+    .from(articles)
+    .leftJoin(categories, eq(articles.categoryId, categories.id))
+    .where(
+      onlyUncategorized
+        ? isNull(articles.categoryId)
+        : selectedId !== null
+          ? eq(articles.categoryId, selectedId)
+          : undefined,
+    )
+    // 발행일이 없으면 수집 시각을 기준으로 최신순 정렬
+    .orderBy(
+      desc(sql`coalesce(${articles.publishedAt}, ${articles.createdAt})`),
+      desc(articles.id),
+    )
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE);
 
   const activeKey = onlyUncategorized
     ? "uncategorized"
@@ -137,6 +159,18 @@ async function DashboardContent({
           ))}
         </div>
       )}
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        hrefFor={(p) => {
+          const params = new URLSearchParams();
+          if (activeKey !== "all") params.set("category", activeKey);
+          if (p > 1) params.set("page", String(p));
+          const qs = params.toString();
+          return qs ? `/dashboard?${qs}` : "/dashboard";
+        }}
+      />
     </>
   );
 }

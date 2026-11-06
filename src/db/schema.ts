@@ -23,8 +23,10 @@ export const articles = pgTable(
     url: text("url").notNull().unique(),
     source: text("source").notNull(),
     originalTitle: text("original_title").notNull(),
-    titleKo: text("title_ko").notNull(),
-    summaryKo: text("summary_ko").notNull(),
+    contentSnippet: text("content_snippet"),
+    // Claude 번역·요약 단계에서 채운다. 그 전에는 null
+    titleKo: text("title_ko"),
+    summaryKo: text("summary_ko"),
     categoryId: integer("category_id").references(() => categories.id, {
       onDelete: "set null",
     }),
