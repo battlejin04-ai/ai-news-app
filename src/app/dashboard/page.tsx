@@ -101,6 +101,7 @@ async function DashboardContent({
       publishedAt: articles.publishedAt,
       createdAt: articles.createdAt,
       notionPageId: articles.notionPageId,
+      categoryId: articles.categoryId,
       categoryName: categories.name,
     })
     .from(articles)

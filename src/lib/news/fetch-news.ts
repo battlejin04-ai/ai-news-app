@@ -2,6 +2,7 @@ import { inArray } from "drizzle-orm";
 import Parser from "rss-parser";
 import { db } from "@/db";
 import { articles } from "@/db/schema";
+import { enrichPendingArticles } from "@/lib/ai/enrich-articles";
 
 const FEEDS = [
   {
@@ -28,6 +29,8 @@ type FeedArticle = {
 export type FetchResult = {
   added: number;
   skipped: number;
+  enriched: number;
+  failed: number;
   feedErrors: string[];
 };
 
@@ -102,22 +105,35 @@ export async function fetchAndStoreNews(): Promise<FetchResult> {
   const fresh = unique.filter((a) => !existingUrls.has(a.url));
   const skipped = unique.length - fresh.length;
 
-  if (fresh.length === 0) return { added: 0, skipped, feedErrors };
+  // 3. 저장. 동시 실행 대비 url 충돌은 무시
+  let added = 0;
+  if (fresh.length > 0) {
+    const inserted = await db
+      .insert(articles)
+      .values(
+        fresh.map((a) => ({
+          url: a.url,
+          source: a.source,
+          originalTitle: a.originalTitle,
+          contentSnippet: a.content || null,
+          publishedAt: a.publishedAt,
+        })),
+      )
+      .onConflictDoNothing({ target: articles.url })
+      .returning({ id: articles.id });
+    added = inserted.length;
+  }
 
-  // 3. 저장 (번역·요약·분류는 이후 단계에서 채운다). 동시 실행 대비 url 충돌은 무시
-  const inserted = await db
-    .insert(articles)
-    .values(
-      fresh.map((a) => ({
-        url: a.url,
-        source: a.source,
-        originalTitle: a.originalTitle,
-        contentSnippet: a.content || null,
-        publishedAt: a.publishedAt,
-      })),
-    )
-    .onConflictDoNothing({ target: articles.url })
-    .returning({ id: articles.id });
+  // 4. 번역·요약·분류. titleKo가 비어 있는 기사(이전 실패분 포함)만 Claude로 보낸다.
+  //    실패해도 기사는 이미 저장되어 있으므로 수집 자체는 성공으로 처리한다.
+  let enriched = 0;
+  let failed = 0;
+  try {
+    ({ enriched, failed } = await enrichPendingArticles());
+  } catch (err) {
+    console.error("[enrich] 처리 실패:", err);
+    feedErrors.push(`Claude 처리 실패: ${String(err)}`);
+  }
 
-  return { added: inserted.length, skipped, feedErrors };
+  return { added, skipped, enriched, failed, feedErrors };
 }

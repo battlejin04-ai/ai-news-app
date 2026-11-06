@@ -1,3 +1,5 @@
+import { categoryColor } from "./category-color";
+
 export type NewsCardItem = {
   id: number;
   url: string;
@@ -9,6 +11,7 @@ export type NewsCardItem = {
   publishedAt: Date | null;
   createdAt: Date;
   notionPageId: string | null;
+  categoryId: number | null;
   categoryName: string | null;
 };
 
@@ -31,13 +34,11 @@ export function NewsCard({ item }: { item: NewsCardItem }) {
   return (
     <article className="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
       <div className="flex items-center justify-between gap-2">
-        {item.categoryName ? (
-          <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
-            {item.categoryName}
-          </span>
-        ) : (
-          <span />
-        )}
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${categoryColor(item.categoryId).badge}`}
+        >
+          {item.categoryName ?? "미분류"}
+        </span>
         <time dateTime={date.toISOString()} className="text-xs text-slate-500">
           {formatDate(date)}
         </time>

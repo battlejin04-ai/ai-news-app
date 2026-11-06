@@ -19,12 +19,15 @@ export function FetchNewsButton() {
       if (!res.ok) {
         throw new Error(data?.error ?? "뉴스를 가져오지 못했습니다.");
       }
+      const parts: string[] = [];
+      if (data.added > 0) parts.push(`새 기사 ${data.added}건 추가`);
+      if (data.enriched > 0) parts.push(`번역·요약·분류 ${data.enriched}건 완료`);
+      if (data.failed > 0) {
+        parts.push(`${data.failed}건은 처리 실패(다음 수집 때 재시도)`);
+      }
       setNotice({
-        kind: "success",
-        text:
-          data.added > 0
-            ? `새 기사 ${data.added}건 추가`
-            : "새로운 기사가 없습니다.",
+        kind: data.failed > 0 ? "error" : "success",
+        text: parts.length > 0 ? parts.join(" · ") : "새로운 기사가 없습니다.",
       });
       router.refresh();
     } catch (e) {
