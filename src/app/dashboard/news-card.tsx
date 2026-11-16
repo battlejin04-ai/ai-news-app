@@ -1,4 +1,5 @@
 import { categoryColor } from "./category-color";
+import { SaveNotionButton } from "./save-notion-button";
 
 export type NewsCardItem = {
   id: number;
@@ -60,24 +61,7 @@ export function NewsCard({ item }: { item: NewsCardItem }) {
         >
           {item.source} ↗
         </a>
-        {saved ? (
-          <button
-            type="button"
-            disabled
-            className="shrink-0 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700"
-          >
-            ✓ 저장됨
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled
-            title="준비 중"
-            className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Notion 저장
-          </button>
-        )}
+        <SaveNotionButton articleId={item.id} saved={saved} />
       </div>
     </article>
   );
