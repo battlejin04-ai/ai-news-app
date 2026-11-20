@@ -18,6 +18,10 @@ UI(대시보드 레이아웃, 카테고리 바, 뉴스 카드, 컴포넌트 스�
 - 테스트 러너는 설정되어 있지 않습니다.
 - `drizzle-kit`은 설치되어 있으나(dev 의존성) `drizzle.config.ts`는 아직 없습니다.
 
+## 슬래시 명령어
+
+- `/news-workflow <브랜치-이름>` — 새 기능 개발 워크플로우 (`.claude/commands/news-workflow.md`). main 확인 → 새 브랜치 생성(이름 생략 시 제안) → 개발 → "완료"/"done" 입력 시 변경 파일 확인·커밋 메시지 제안 → 커밋 후 main 병합 → 작업 요약. 새 기능 개발 시 이 명령으로 시작합니다.
+
 ## Next.js 버전 경고
 
 `AGENTS.md`에 따르면 이 Next.js(16.x)는 일반적인 학습 데이터와 비교해 호환되지 않는 변경 사항이 있습니다. Next.js 코드를 작성하기 전에 `node_modules/next/dist/docs/` 아래의 관련 가이드를 읽으세요. `@clerk/nextjs`(v7)와 `@anthropic-ai/sdk`(v1)도 마찬가지입니다. 기억에 의존하지 말고 설치된 패키지의 문서/타입을 확인하세요.
