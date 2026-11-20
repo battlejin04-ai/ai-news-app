@@ -1,16 +1,7 @@
-import { UserButton } from "@clerk/nextjs";
-import { AuthGate } from "./auth-gate";
+import { redirect } from "next/navigation";
 
+// 실제 기능은 /dashboard에 있으므로, 루트로 들어오면 대시보드로 보낸다.
+// 로그인 처리는 /dashboard의 AuthGate가 담당한다.
 export default function Home() {
-  return (
-    <AuthGate>
-      <header className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-        <h1 className="text-lg font-semibold">AI 뉴스 수집기</h1>
-        <UserButton />
-      </header>
-      <main className="flex flex-1 items-center justify-center p-8">
-        <p className="text-zinc-600 dark:text-zinc-400">로그인되었습니다.</p>
-      </main>
-    </AuthGate>
-  );
+  redirect("/dashboard");
 }
