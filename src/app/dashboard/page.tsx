@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { UserButton } from "@clerk/nextjs";
 import { auth } from "@clerk/nextjs/server";
-import { desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import { AuthGate } from "../auth-gate";
 import { db } from "@/db";
 import { articles, categories } from "@/db/schema";
@@ -9,6 +9,7 @@ import { CategoryBar } from "./category-bar";
 import { FetchNewsButton } from "./fetch-news-button";
 import { NewsCard } from "./news-card";
 import { Pagination } from "./pagination";
+import { SearchBar } from "./search-bar";
 
 export const metadata = { title: "대시보드 · AI 뉴스 수집기" };
 
@@ -66,7 +67,22 @@ async function DashboardContent({
   const requestedPage =
     pageParam && /^\d+$/.test(pageParam) ? Math.max(1, Number(pageParam)) : 1;
 
-  // 카운트는 카테고리 필터와 무관하게 전체 기준으로 먼저 계산해 페이지 수를 구한다.
+  const rawQ = (await searchParams).q;
+  const query = ((Array.isArray(rawQ) ? rawQ[0] : rawQ) ?? "")
+    .trim()
+    .slice(0, 100);
+  // LIKE 와일드카드(%, _, \)는 문자 그대로 검색한다.
+  const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
+  const searchFilter = query
+    ? or(
+        ilike(articles.titleKo, pattern),
+        ilike(articles.summaryKo, pattern),
+        ilike(articles.originalTitle, pattern),
+        ilike(articles.contentSnippet, pattern),
+      )
+    : undefined;
+
+  // 카운트는 카테고리 필터와 무관하게(검색어는 적용) 먼저 계산해 페이지 수를 구한다.
   const [categoryRows, countRows] = await Promise.all([
     db.select().from(categories).orderBy(categories.id),
     db
@@ -75,6 +91,7 @@ async function DashboardContent({
         count: sql<number>`count(*)::int`,
       })
       .from(articles)
+      .where(searchFilter)
       .groupBy(articles.categoryId),
   ]);
 
@@ -107,11 +124,14 @@ async function DashboardContent({
     .from(articles)
     .leftJoin(categories, eq(articles.categoryId, categories.id))
     .where(
-      onlyUncategorized
-        ? isNull(articles.categoryId)
-        : selectedId !== null
-          ? eq(articles.categoryId, selectedId)
-          : undefined,
+      and(
+        onlyUncategorized
+          ? isNull(articles.categoryId)
+          : selectedId !== null
+            ? eq(articles.categoryId, selectedId)
+            : undefined,
+        searchFilter,
+      ),
     )
     // 발행일이 없으면 수집 시각을 기준으로 최신순 정렬
     .orderBy(
@@ -129,6 +149,7 @@ async function DashboardContent({
 
   return (
     <>
+      <SearchBar query={query} category={activeKey} />
       <CategoryBar
         categories={categoryRows.map((c) => ({
           id: c.id,
@@ -138,16 +159,19 @@ async function DashboardContent({
         total={total}
         uncategorizedCount={counts.get(null) ?? 0}
         activeKey={activeKey}
+        query={query}
       />
 
       {items.length === 0 ? (
         <div className="py-20 text-center">
           <p className="text-base font-semibold">
-            {activeKey === "all"
-              ? "아직 수집된 뉴스가 없어요"
-              : "이 카테고리에는 뉴스가 없어요."}
+            {query
+              ? `'${query}'에 대한 검색 결과가 없어요.`
+              : activeKey === "all"
+                ? "아직 수집된 뉴스가 없어요"
+                : "이 카테고리에는 뉴스가 없어요."}
           </p>
-          {activeKey === "all" && (
+          {activeKey === "all" && !query && (
             <p className="mt-1 text-sm text-slate-500">
               상단의 &lsquo;뉴스 가져오기&rsquo;를 눌러 시작하세요.
             </p>
@@ -167,6 +191,7 @@ async function DashboardContent({
         hrefFor={(p) => {
           const params = new URLSearchParams();
           if (activeKey !== "all") params.set("category", activeKey);
+          if (query) params.set("q", query);
           if (p > 1) params.set("page", String(p));
           const qs = params.toString();
           return qs ? `/dashboard?${qs}` : "/dashboard";

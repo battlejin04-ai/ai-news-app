@@ -13,12 +13,23 @@ export function CategoryBar({
   total,
   uncategorizedCount,
   activeKey,
+  query = "",
 }: {
   categories: CategoryChip[];
   total: number;
   uncategorizedCount: number;
   activeKey: string;
+  query?: string;
 }) {
+  // 검색어가 있으면 카테고리를 바꿔도 유지한다.
+  const hrefFor = (category?: string) => {
+    const params = new URLSearchParams();
+    if (category) params.set("category", category);
+    if (query) params.set("q", query);
+    const qs = params.toString();
+    return qs ? `/dashboard?${qs}` : "/dashboard";
+  };
+
   const chips: {
     key: string;
     label: string;
@@ -26,11 +37,11 @@ export function CategoryBar({
     count: number;
     dot?: string;
   }[] = [
-    { key: "all", label: "전체", href: "/dashboard", count: total },
+    { key: "all", label: "전체", href: hrefFor(), count: total },
     ...categories.map((c) => ({
       key: String(c.id),
       label: c.name,
-      href: `/dashboard?category=${c.id}`,
+      href: hrefFor(String(c.id)),
       count: c.count,
       dot: categoryColor(c.id).dot,
     })),
@@ -41,7 +52,7 @@ export function CategoryBar({
     chips.push({
       key: "uncategorized",
       label: "미분류",
-      href: "/dashboard?category=uncategorized",
+      href: hrefFor("uncategorized"),
       count: uncategorizedCount,
       dot: categoryColor(null).dot,
     });
